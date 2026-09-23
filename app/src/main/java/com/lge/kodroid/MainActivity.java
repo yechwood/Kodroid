@@ -1,45 +1,16 @@
 package com.lge.kodroid;
-
-import android.app.*;
-import android.os.*;
-import android.content.*;
-import android.graphics.Color;
-import android.net.Uri;
-import android.view.*;
-import android.widget.*;
-import java.io.*;
-import java.net.*;
-import java.util.*;
-
-public class MainActivity extends Activity {
-  EditText server,key,name; TextView status;
-  android.content.SharedPreferences sp;
-  @Override public void onCreate(Bundle b){super.onCreate(b);
-    sp=getSharedPreferences("cfg",0);
-    LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(24,24,24,24);
-    TextView title=new TextView(this); title.setText("Kodroid"); title.setTextSize(28); title.setTextColor(Color.BLACK); root.addView(title);
-    status=new TextView(this); status.setText("Ready"); root.addView(status);
-    name=field("Device name",sp.getString("name","Android device")); root.addView(name);
-    server=field("Server URL",sp.getString("server","https://YOUR-SERVER")); root.addView(server);
-    key=field("OwnDroid API key",sp.getString("key","")); root.addView(key);
-    Button save=new Button(this); save.setText("Save settings"); save.setOnClickListener(v->save()); root.addView(save);
-    Button poll=new Button(this); poll.setText("Check server now"); poll.setOnClickListener(v->new Thread(()->pollOnce()).start()); root.addView(poll);
-    Button own=new Button(this); own.setText("Test OwnDroid connection"); own.setOnClickListener(v->sendOwn("LOCK",null)); root.addView(own);
-    Button apk=new Button(this); apk.setText("Open APK installer"); apk.setOnClickListener(v->{Intent i=new Intent(Intent.ACTION_VIEW); i.setDataAndType(Uri.parse("content://com.lge.kodroid.invalid"),"application/vnd.android.package-archive"); startActivity(i);}); root.addView(apk);
-    setContentView(root);
-  }
-  EditText field(String hint,String val){EditText e=new EditText(this);e.setHint(hint);e.setText(val);e.setSingleLine(true);return e;}
-  void save(){sp.edit().putString("name",name.getText().toString()).putString("server",server.getText().toString()).putString("key",key.getText().toString()).apply(); status.setText("Saved");}
-  void pollOnce(){try{
-    String base=server.getText().toString().replaceAll("/+$","");
-    URL u=new URL(base+"/v1/devices/poll?device="+URLEncoder.encode(name.getText().toString(),"UTF-8"));
-    HttpURLConnection c=(HttpURLConnection)u.openConnection(); c.setRequestMethod("GET"); c.setConnectTimeout(8000); c.setReadTimeout(8000);
-    c.setRequestProperty("Authorization","Bearer "+sp.getString("deviceToken",""));
-    int code=c.getResponseCode(); final String s="Server response: "+code;
-    runOnUiThread(()->status.setText(s)); c.disconnect();
-  }catch(Exception e){runOnUiThread(()->status.setText("Server error: "+e.getClass().getSimpleName()));}}
-  void sendOwn(String action,String pkg){try{
-    Intent i=new Intent("com.bintianqi.owndroid.action."+action).setComponent(new ComponentName("com.bintianqi.owndroid","com.bintianqi.owndroid.ApiReceiver")).putExtra("key",key.getText().toString());
-    if(pkg!=null)i.putExtra("package",pkg); sendBroadcast(i); runOnUiThread(()->status.setText("OwnDroid request sent: "+action));
-  }catch(Exception e){runOnUiThread(()->status.setText("OwnDroid error: "+e.getMessage()));}}
+import android.app.*; import android.os.*; import android.graphics.Color; import android.view.*; import android.widget.*; import java.io.*; import java.net.*; import java.util.*;
+public class MainActivity extends Activity{
+ TextView status,code; android.content.SharedPreferences sp;
+ public void onCreate(Bundle b){super.onCreate(b);sp=getSharedPreferences("cfg",0);LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.VERTICAL);r.setPadding(32,40,32,32);
+ TextView t=new TextView(this);t.setText("Kodroid");t.setTextSize(32);t.setTextColor(Color.BLACK);r.addView(t);TextView i=new TextView(this);i.setText("This device is being protected and managed.");i.setTextSize(18);r.addView(i);
+ code=new TextView(this);code.setText("Connecting…");code.setTextSize(30);code.setPadding(0,32,0,32);r.addView(code);status=new TextView(this);status.setText("Starting secure enrollment…");r.addView(status);
+ Button p=new Button(this);p.setText("Get pairing code");p.setOnClickListener(v->new Thread(()->enroll()).start());r.addView(p);Button s=new Button(this);s.setText("Connection settings");s.setOnClickListener(v->settings());r.addView(s);setContentView(r);new Thread(()->enroll()).start();}
+ void enroll(){try{String base=sp.getString("server","").replaceAll("/+$","");if(base.length()==0){runOnUiThread(()->status.setText("Open Connection settings to enter the server address."));return;}String key=sp.getString("deviceKey","");if(key.length()<32){key=UUID.randomUUID().toString().replace("-","")+UUID.randomUUID().toString().replace("-","");sp.edit().putString("deviceKey",key).apply();}String out=post(base+"/v1/devices/register","{\"deviceKey\":\""+esc(key)+"\",\"name\":\"Android device\",\"model\":\""+esc(Build.MODEL)+"\",\"android\":\""+Build.VERSION.RELEASE+"\"}",null);String tok=find(out,"deviceToken"),did=find(out,"deviceId");if(tok==null)throw new Exception("registration failed");sp.edit().putString("deviceToken",tok).putString("deviceId",did).apply();String co=post(base+"/v1/devices/pair/start","{}",tok),pc=find(co,"code");if(pc!=null)runOnUiThread(()->code.setText("Pairing code\n"+pc));while(true){Thread.sleep(10000);get(base+"/v1/devices/"+did+"/poll",tok);runOnUiThread(()->status.setText("Connected — waiting for commands"));}}catch(Exception e){runOnUiThread(()->status.setText("Connection error: "+e.getMessage()));}}
+ String post(String u,String b,String t)throws Exception{HttpURLConnection c=(HttpURLConnection)new URL(u).openConnection();c.setRequestMethod("POST");c.setDoOutput(true);c.setConnectTimeout(8000);c.setReadTimeout(8000);c.setRequestProperty("Content-Type","application/json");if(t!=null)c.setRequestProperty("Authorization","Bearer "+t);c.getOutputStream().write(b.getBytes("UTF-8"));return read(c);}
+ String get(String u,String t)throws Exception{HttpURLConnection c=(HttpURLConnection)new URL(u).openConnection();c.setRequestMethod("GET");c.setConnectTimeout(8000);c.setReadTimeout(8000);c.setRequestProperty("Authorization","Bearer "+t);return read(c);}
+ String read(HttpURLConnection c)throws Exception{int n=c.getResponseCode();InputStream in=n>=400?c.getErrorStream():c.getInputStream();if(in==null)return "";ByteArrayOutputStream o=new ByteArrayOutputStream();byte[] b=new byte[2048];int x;while((x=in.read(b))!=-1)o.write(b,0,x);return o.toString("UTF-8");}
+ String find(String j,String k){String q="\""+k+"\":\"";int i=j.indexOf(q);if(i<0)return null;i+=q.length();int e=j.indexOf("\"",i);return e<0?null:j.substring(i,e);}
+ String esc(String s){return s.replace("\\","\\\\").replace("\"","\\\"");}
+ void settings(){EditText e=new EditText(this);e.setSingleLine(true);e.setHint("https://your-server");e.setText(sp.getString("server",""));new AlertDialog.Builder(this).setTitle("Connection settings").setMessage("Enter the Kodroid server address once.").setView(e).setPositiveButton("Save",(d,w)->{sp.edit().putString("server",e.getText().toString().trim()).apply();new Thread(()->enroll()).start();}).setNegativeButton("Cancel",null).show();}
 }
