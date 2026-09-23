@@ -3,7 +3,7 @@ package com.lge.kodroid;
 import android.app.*;import android.view.*;import android.app.admin.*;import android.content.*;import android.graphics.*;import android.graphics.drawable.*;import android.os.*;import android.widget.*;import java.security.*;import java.util.*;import java.util.concurrent.Executor;
 public class MainActivity extends Activity{
  SharedPreferences sp;TextView status,code,admin,apps;KeyPair kp;byte[]ch;String reply,last="";int blue=Color.rgb(38,99,235),dark=Color.rgb(20,28,45);
- public void onCreate(Bundle b){super.onCreate(b);ui();new Thread(this::loop).start();}
+ public void onCreate(Bundle b){super.onCreate(b);sp=getSharedPreferences("kodroid",MODE_PRIVATE);ui();new Thread(this::loop).start();}
  TextView t(String s,float z){TextView v=new TextView(this);v.setText(s);v.setTextSize(z);v.setTextColor(dark);v.setPadding(0,5,0,5);return v;}
  GradientDrawable card(){GradientDrawable g=new GradientDrawable();g.setColor(Color.WHITE);g.setCornerRadius(28);return g;}
  LinearLayout sec(String s){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);l.setPadding(24,18,24,18);l.setBackground(card());TextView h=t(s,19);h.setTypeface(null,1);l.addView(h);return l;}
