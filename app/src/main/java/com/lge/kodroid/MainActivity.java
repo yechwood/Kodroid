@@ -1,5 +1,6 @@
-// Modern management UI\npackage com.lge.kodroid;
-import android.app.*;import android.app.admin.*;import android.content.*;import android.graphics.*;import android.graphics.drawable.*;import android.os.*;import android.widget.*;import java.security.*;import java.util.*;import java.util.concurrent.Executor;
+// Modern management UI
+package com.lge.kodroid;
+import android.app.*;import android.view.*;import android.app.admin.*;import android.content.*;import android.graphics.*;import android.graphics.drawable.*;import android.os.*;import android.widget.*;import java.security.*;import java.util.*;import java.util.concurrent.Executor;
 public class MainActivity extends Activity{
  SharedPreferences sp;TextView status,code,admin,apps;KeyPair kp;byte[]ch;String reply,last="";int blue=Color.rgb(38,99,235),dark=Color.rgb(20,28,45);
  public void onCreate(Bundle b){super.onCreate(b);ui();new Thread(this::loop).start();}
